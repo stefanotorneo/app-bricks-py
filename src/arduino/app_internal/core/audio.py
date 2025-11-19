@@ -13,6 +13,8 @@ from arduino.app_utils import Logger, SlidingWindowBuffer, brick
 
 logger = Logger(__name__)
 
+NO_MIC = object()  # Sentinel value for no microphone
+
 
 class AudioDetector(EdgeImpulseRunnerFacade):
     """AudioDetector module for detecting sounds and classifying audio using a specified model."""
@@ -42,7 +44,7 @@ class AudioDetector(EdgeImpulseRunnerFacade):
             raise ValueError("Model parameters are missing or incomplete in the retrieved model information.")
         self.model_info = model_info
 
-        self._mic = mic if mic else Microphone(sample_rate=model_info.frequency, channels=model_info.axis_count)
+        self._mic = None if mic is NO_MIC else (mic or Microphone(sample_rate=model_info.frequency, channels=model_info.axis_count))
         self._mic_lock = threading.Lock()
 
         self._window_size = int(model_info.input_features_count / model_info.axis_count)
