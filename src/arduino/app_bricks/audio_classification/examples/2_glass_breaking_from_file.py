@@ -4,9 +4,9 @@
 
 # EXAMPLE_NAME = "Detect the glass breaking sound from audio file"
 # EXAMPLE_REQUIRES = "Requires an audio file with the glass breaking sound."
-from arduino.app_bricks.audio_classification import AudioClassification
+from arduino.app_bricks.audio_classification import AudioClassification, NO_MIC
 
-classifier = AudioClassification()
+classifier = AudioClassification(mic=NO_MIC)
 
 classification = classifier.classify_from_file("glass_breaking.wav")
 print("Result:", classification)
