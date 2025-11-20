@@ -26,7 +26,7 @@ class MotionDetection(EdgeImpulseRunnerFacade):
         """
         self._confidence = confidence
         super().__init__()
-        model_info = self.get_model_info()
+        model_info = EdgeImpulseRunnerFacade.get_model_info()
         if not model_info:
             raise ValueError("Failed to retrieve model information. Ensure the EI model runner service is running.")
         if model_info.frequency <= 0 or model_info.input_features_count <= 0:
@@ -133,7 +133,7 @@ class MotionDetection(EdgeImpulseRunnerFacade):
             return
 
         try:
-            ret = super().infer_from_features(features[: int(self._model_info.input_features_count)].flatten().tolist())
+            ret = EdgeImpulseRunnerFacade.infer_from_features(features.tolist())
             spotted_movement = self._movement_spotted(ret)
             if spotted_movement is not None:
                 keyword, confidence, complete_detection = spotted_movement

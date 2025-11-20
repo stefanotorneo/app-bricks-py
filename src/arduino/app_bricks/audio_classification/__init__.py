@@ -6,9 +6,10 @@ import struct
 import wave
 from typing import Callable
 
-from arduino.app_internal.core.audio import AudioDetector, NO_MIC as NO_MIC
+from arduino.app_internal.core.audio import AudioDetector
 from arduino.app_peripherals.microphone import Microphone
 from arduino.app_utils import brick, Logger
+from arduino.app_internal.core import EdgeImpulseRunnerFacade
 
 logger = Logger("AudioClassification")
 
@@ -28,8 +29,6 @@ class AudioClassification(AudioDetector):
 
         Args:
             mic (Microphone, optional): Microphone instance used as the audio source. If None, a default Microphone will be initialized.
-                If NO_MIC is passed, no microphone will be initialized, and only file-based classification
-                will be available.
             confidence (float, optional): Minimum confidence threshold (0.0–1.0) required
                 for a detection to be considered valid. Defaults to 0.8 (80%).
 
@@ -68,7 +67,8 @@ class AudioClassification(AudioDetector):
         """
         super().stop()
 
-    def classify_from_file(self, audio_path: str, confidence: int = None) -> dict | None:
+    @staticmethod
+    def classify_from_file(audio_path: str, confidence: int) -> dict | None:
         """Classify audio content from a WAV file.
 
         Supported sample widths:
@@ -91,10 +91,10 @@ class AudioClassification(AudioDetector):
 
         Raises:
             AudioClassificationException: If the file cannot be found, read, or processed.
-            ValueError: If the file uses an unsupported sample width.
+            ValueError: If the file uses an unsupported sample width or if confidence is not specified.
         """
         if confidence is None:
-            confidence = self.confidence
+            raise ValueError("Confidence level must be specified.")
 
         try:
             with wave.open(audio_path, "rb") as wf:
@@ -127,8 +127,8 @@ class AudioClassification(AudioDetector):
                 else:
                     raise ValueError(f"Unsupported sample width: {samp_width} bytes. Cannot process this WAV file.")
 
-                classification = super().infer_from_features(features[: int(self.model_info.input_features_count)])
-                best_match = super().get_best_match(classification, confidence)
+                classification = EdgeImpulseRunnerFacade.infer_from_features(features)
+                best_match = AudioDetector.get_best_match(classification, confidence)
                 if not best_match:
                     return None
                 keyword, confidence = best_match

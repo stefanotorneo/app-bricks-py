@@ -31,7 +31,7 @@ class ObjectDetection(EdgeImpulseRunnerFacade):
         """
         self.confidence = confidence
         super().__init__()
-        self._model_info = self.get_model_info()
+        self._model_info = EdgeImpulseRunnerFacade.get_model_info()
         if not self._model_info:
             raise ValueError("Failed to retrieve model information. Ensure the Edge Impulse service is running.")
 

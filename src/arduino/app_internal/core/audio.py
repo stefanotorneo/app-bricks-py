@@ -13,8 +13,6 @@ from arduino.app_utils import Logger, SlidingWindowBuffer, brick
 
 logger = Logger(__name__)
 
-NO_MIC = object()  # Sentinel value for no microphone
-
 
 class AudioDetector(EdgeImpulseRunnerFacade):
     """AudioDetector module for detecting sounds and classifying audio using a specified model."""
@@ -37,14 +35,14 @@ class AudioDetector(EdgeImpulseRunnerFacade):
         self._debounce_sec = debounce_sec
         self._last_detected = {}
 
-        model_info = self.get_model_info()
+        model_info = EdgeImpulseRunnerFacade.get_model_info()
         if not model_info:
             raise ValueError("Failed to retrieve model information. Ensure the Edge Impulse service is running.")
         if model_info.frequency <= 0 or model_info.input_features_count <= 0:
             raise ValueError("Model parameters are missing or incomplete in the retrieved model information.")
         self.model_info = model_info
 
-        self._mic = None if mic is NO_MIC else (mic or Microphone(sample_rate=model_info.frequency, channels=model_info.axis_count))
+        self._mic = mic if mic else Microphone(sample_rate=model_info.frequency, channels=model_info.axis_count)
         self._mic_lock = threading.Lock()
 
         self._window_size = int(model_info.input_features_count / model_info.axis_count)
@@ -87,17 +85,24 @@ class AudioDetector(EdgeImpulseRunnerFacade):
             self._mic.stop()
         self._buffer.flush()
 
-    def get_best_match(self, item: dict, confidence: int = None) -> tuple[str, float] | None:
+    @staticmethod
+    def get_best_match(item: dict, confidence: float) -> tuple[str, float] | None:
         """Extract the best matched keyword from the classification results.
 
         Args:
         item (dict): The classification result from the inference.
-        confidence (int): The confidence threshold for classification. If None, uses the instance's confidence level.
+        confidence (float): The confidence threshold for classification.
 
         Returns:
         tuple[str, float] | None: The best matched keyword and its confidence, or None if no match is found.
+
+        Raises:
+        ValueError: If confidence level is not provided.
         """
-        classification = _extract_classification(item, confidence or self.confidence)
+        if confidence is None:
+            raise ValueError("Confidence level must be provided.")
+
+        classification = _extract_classification(item, confidence)
         if not classification:
             return None
 
@@ -143,8 +148,8 @@ class AudioDetector(EdgeImpulseRunnerFacade):
 
         logger.debug(f"Processing sensor data with {len(features)} features.")
         try:
-            ret = super().infer_from_features(features[: int(self.model_info.input_features_count)].tolist())
-            spotted_keyword = self.get_best_match(ret)
+            ret = EdgeImpulseRunnerFacade.infer_from_features(features.tolist())
+            spotted_keyword = AudioDetector.get_best_match(ret, self.confidence)
             if spotted_keyword:
                 keyword, confidence = spotted_keyword
                 keyword = keyword.lower()

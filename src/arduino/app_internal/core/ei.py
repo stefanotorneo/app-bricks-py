@@ -43,17 +43,8 @@ class EdgeImpulseRunnerFacade:
 
     def __init__(self):
         """Initialize the EdgeImpulseRunnerFacade with the API path."""
-        infra = load_brick_compose_file(self.__class__)
-        for k, v in infra["services"].items():
-            self.host = k
-            self.infra = v
-            break  # Only one service is expected
-
-        self.host = resolve_address(self.host)
-
-        self.port = 1337  # Default EI HTTP port
-        self.url = f"http://{self.host}:{self.port}"
-        logger.warning(f"[{self.__class__.__name__}] Host: {self.host} - Ports: {self.port} - URL: {self.url}")
+        self.url = _get_ei_url(self.__class__)
+        logger.warning(f"[{self.__class__.__name__}] URL: {self.url}")
 
     def infer_from_file(self, image_path: str) -> dict | None:
         if not image_path or image_path == "":
@@ -124,47 +115,56 @@ class EdgeImpulseRunnerFacade:
             logger.error(f"[{self.__class__}] Error processing file {item}: {e}")
         return None
 
-    def infer_from_features(self, features: list) -> dict | None:
-        """Infer from features using the Edge Impulse API.
+    @classmethod
+    def infer_from_features(cls, features: list) -> dict | None:
+        """
+        Infer from features using the Edge Impulse API.
 
         Args:
+            cls: The class method caller.
             features (list): A list of features to send to the Edge Impulse API.
 
         Returns:
             dict | None: The response from the Edge Impulse API as a dictionary, or None if an error occurs.
         """
         try:
-            response = requests.post(f"{self.url}/api/features", json={"features": features})
+            url = _get_ei_url(cls)
+            model_info = EdgeImpulseRunnerFacade.get_model_info()
+            features = features[: int(model_info.input_features_count)]
+
+            response = requests.post(f"{url}/api/features", json={"features": features})
             if response.status_code == 200:
                 return response.json()
             else:
-                logger.warning(f"[{self.__class__}] error: {response.status_code}. Message: {response.text}")
+                logger.warning(f"[{cls.__name__}] error: {response.status_code}. Message: {response.text}")
                 return None
         except Exception as e:
-            logger.error(f"[{self.__class__.__name__}] Error: {e}")
+            logger.error(f"[{cls.__name__}] Error: {e}")
             return None
 
-    def get_model_info(self) -> EdgeImpulseModelInfo | None:
+    @classmethod
+    def get_model_info(cls) -> EdgeImpulseModelInfo | None:
         """Get model information from the Edge Impulse API.
+
+        Args:
+            cls: The class method caller.
 
         Returns:
             model_info (EdgeImpulseModelInfo | None): An instance of EdgeImpulseModelInfo containing model details, None if an error occurs.
         """
-        if not self.host or not self.port:
-            logger.error(f"[{self.__class__}] Host or port not set. Cannot fetch model info.")
-            return None
+        url = _get_ei_url(cls)
 
         http_client = HttpClient(total_retries=6)  # Initialize the HTTP client with retry logic
         try:
-            response = http_client.request_with_retry(f"{self.url}/api/info")
+            response = http_client.request_with_retry(f"{url}/api/info")
             if response.status_code == 200:
-                logger.debug(f"[{self.__class__.__name__}] Fetching model info from {self.url}/api/info -> {response.status_code} {response.json}")
+                logger.debug(f"[{cls.__name__}] Fetching model info from {url}/api/info -> {response.status_code} {response.json}")
                 return EdgeImpulseModelInfo(response.json())
             else:
-                logger.warning(f"[{self.__class__}] Error fetching model info: {response.status_code}. Message: {response.text}")
+                logger.warning(f"[{cls}] Error fetching model info: {response.status_code}. Message: {response.text}")
                 return None
         except Exception as e:
-            logger.error(f"[{self.__class__}] Error fetching model info: {e}")
+            logger.error(f"[{cls}] Error fetching model info: {e}")
             return None
         finally:
             http_client.close()  # Close the HTTP client session
@@ -237,3 +237,14 @@ class EdgeImpulseRunnerFacade:
                 return class_results["anomaly"]
 
         return None
+
+
+def _get_ei_url(cls):
+    infra = load_brick_compose_file(cls)
+    for k, v in infra["services"].items():
+        host = k
+        break
+    host = resolve_address(host)
+    port = 1337
+    url = f"http://{host}:{port}"
+    return url
