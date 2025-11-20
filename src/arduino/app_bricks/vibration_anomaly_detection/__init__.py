@@ -48,7 +48,7 @@ class VibrationAnomalyDetection(EdgeImpulseRunnerFacade):
         """
         self._anomaly_detection_threshold = anomaly_detection_threshold
         super().__init__()
-        model_info = self.get_model_info()
+        model_info = EdgeImpulseRunnerFacade.get_model_info()
         if not model_info:
             raise ValueError("Failed to retrieve model information. Ensure the EI model runner service is running.")
         if model_info.frequency <= 0 or model_info.input_features_count <= 0:
@@ -133,7 +133,7 @@ class VibrationAnomalyDetection(EdgeImpulseRunnerFacade):
             if features is None or len(features) == 0:
                 return
 
-            ret = super().infer_from_features(features[: int(self._model_info.input_features_count)].flatten().tolist())
+            ret = EdgeImpulseRunnerFacade.infer_from_features(features.tolist())
             logger.debug(f"Inference result: {ret}")
             spotted_anomaly = self._extract_anomaly_score(ret)
             if spotted_anomaly is not None:
@@ -183,6 +183,14 @@ class VibrationAnomalyDetection(EdgeImpulseRunnerFacade):
             - Clears the internal buffer; does not alter the registered callback.
         """
         self._clear()
+
+    def get_model_info(self):
+        """Get the Edge Impulse model information used by this detector.
+
+        Returns:
+            EdgeImpulseModelInfo: The model information object.
+        """
+        return self._model_info
 
     def _clear(self):
         """Internal helper: flush the sensor data buffer and log the action.
