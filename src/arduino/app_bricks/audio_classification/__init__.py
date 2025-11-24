@@ -68,7 +68,7 @@ class AudioClassification(AudioDetector):
         super().stop()
 
     @staticmethod
-    def classify_from_file(audio_path: str, confidence: int) -> dict | None:
+    def classify_from_file(audio_path: str, confidence: float = 0.8) -> dict | None:
         """Classify audio content from a WAV file.
 
         Supported sample widths:
@@ -79,9 +79,8 @@ class AudioClassification(AudioDetector):
 
         Args:
             audio_path (str): Path to the `.wav` audio file to classify.
-            confidence (int, optional): Confidence threshold (0–1). If None,
-                the default confidence level specified during initialization
-                will be applied.
+            confidence (float, optional): Minimum confidence threshold (0.0–1.0) required
+                for a detection to be considered valid. Defaults to 0.8 (80%).
 
         Returns:
             dict | None: A dictionary with keys:
@@ -93,9 +92,6 @@ class AudioClassification(AudioDetector):
             AudioClassificationException: If the file cannot be found, read, or processed.
             ValueError: If the file uses an unsupported sample width or if confidence is not specified.
         """
-        if confidence is None:
-            raise ValueError("Confidence level must be specified.")
-
         try:
             with wave.open(audio_path, "rb") as wf:
                 # Get WAV file properties
