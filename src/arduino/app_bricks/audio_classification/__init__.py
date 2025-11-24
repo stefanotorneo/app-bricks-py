@@ -90,7 +90,7 @@ class AudioClassification(AudioDetector):
 
         Raises:
             AudioClassificationException: If the file cannot be found, read, or processed.
-            ValueError: If the file uses an unsupported sample width or if confidence is not specified.
+            ValueError: If the file uses an unsupported sample width.
         """
         try:
             with wave.open(audio_path, "rb") as wf:
