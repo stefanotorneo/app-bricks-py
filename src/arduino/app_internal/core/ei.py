@@ -43,7 +43,7 @@ class EdgeImpulseRunnerFacade:
 
     def __init__(self):
         """Initialize the EdgeImpulseRunnerFacade with the API path."""
-        self.url = _get_ei_url(self.__class__)
+        self.url = self._get_ei_url()
         logger.warning(f"[{self.__class__.__name__}] URL: {self.url}")
 
     def infer_from_file(self, image_path: str) -> dict | None:
@@ -128,7 +128,7 @@ class EdgeImpulseRunnerFacade:
             dict | None: The response from the Edge Impulse API as a dictionary, or None if an error occurs.
         """
         try:
-            url = _get_ei_url(cls)
+            url = cls._get_ei_url()
             model_info = EdgeImpulseRunnerFacade.get_model_info()
             features = features[: int(model_info.input_features_count)]
 
@@ -152,7 +152,7 @@ class EdgeImpulseRunnerFacade:
         Returns:
             model_info (EdgeImpulseModelInfo | None): An instance of EdgeImpulseModelInfo containing model details, None if an error occurs.
         """
-        url = _get_ei_url(cls)
+        url = cls._get_ei_url()
 
         http_client = HttpClient(total_retries=6)  # Initialize the HTTP client with retry logic
         try:
@@ -238,13 +238,13 @@ class EdgeImpulseRunnerFacade:
 
         return None
 
-
-def _get_ei_url(cls):
-    infra = load_brick_compose_file(cls)
-    for k, v in infra["services"].items():
-        host = k
-        break
-    host = resolve_address(host)
-    port = 1337
-    url = f"http://{host}:{port}"
-    return url
+    @classmethod
+    def _get_ei_url(cls):
+        infra = load_brick_compose_file(cls)
+        for k, v in infra["services"].items():
+            host = k
+            break
+        host = resolve_address(host)
+        port = 1337
+        url = f"http://{host}:{port}"
+        return url
