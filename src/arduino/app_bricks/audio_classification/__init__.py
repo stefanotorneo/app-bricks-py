@@ -9,7 +9,6 @@ from typing import Callable
 from arduino.app_internal.core.audio import AudioDetector
 from arduino.app_peripherals.microphone import Microphone
 from arduino.app_utils import brick, Logger
-from arduino.app_internal.core import EdgeImpulseRunnerFacade
 
 logger = Logger("AudioClassification")
 
