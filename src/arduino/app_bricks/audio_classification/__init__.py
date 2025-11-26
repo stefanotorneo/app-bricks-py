@@ -122,8 +122,7 @@ class AudioClassification(AudioDetector):
                     features = list(struct.unpack(fmt, frames))
                 else:
                     raise ValueError(f"Unsupported sample width: {samp_width} bytes. Cannot process this WAV file.")
-
-                classification = EdgeImpulseRunnerFacade.infer_from_features(features)
+                classification = AudioClassification.infer_from_features(features)
                 best_match = AudioDetector.get_best_match(classification, confidence)
                 if not best_match:
                     return None

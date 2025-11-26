@@ -129,7 +129,7 @@ class EdgeImpulseRunnerFacade:
         """
         try:
             url = cls._get_ei_url()
-            model_info = EdgeImpulseRunnerFacade.get_model_info()
+            model_info = cls.get_model_info()
             features = features[: int(model_info.input_features_count)]
 
             response = requests.post(f"{url}/api/features", json={"features": features})
