@@ -184,14 +184,6 @@ class VibrationAnomalyDetection(EdgeImpulseRunnerFacade):
         """
         self._clear()
 
-    def get_model_info(self):
-        """Get the Edge Impulse model information used by this detector.
-
-        Returns:
-            EdgeImpulseModelInfo: The model information object.
-        """
-        return self._model_info
-
     def _clear(self):
         """Internal helper: flush the sensor data buffer and log the action.
 
