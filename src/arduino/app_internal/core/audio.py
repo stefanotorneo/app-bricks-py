@@ -35,7 +35,7 @@ class AudioDetector(EdgeImpulseRunnerFacade):
         self._debounce_sec = debounce_sec
         self._last_detected = {}
 
-        model_info = EdgeImpulseRunnerFacade.get_model_info()
+        model_info = self.get_model_info()
         if not model_info:
             raise ValueError("Failed to retrieve model information. Ensure the Edge Impulse service is running.")
         if model_info.frequency <= 0 or model_info.input_features_count <= 0:
@@ -148,7 +148,7 @@ class AudioDetector(EdgeImpulseRunnerFacade):
 
         logger.debug(f"Processing sensor data with {len(features)} features.")
         try:
-            ret = EdgeImpulseRunnerFacade.infer_from_features(features.tolist())
+            ret = self.infer_from_features(features.tolist())
             spotted_keyword = AudioDetector.get_best_match(ret, self.confidence)
             if spotted_keyword:
                 keyword, confidence = spotted_keyword
