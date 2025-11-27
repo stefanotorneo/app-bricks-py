@@ -44,7 +44,7 @@ class EdgeImpulseRunnerFacade:
     def __init__(self):
         """Initialize the EdgeImpulseRunnerFacade with the API path."""
         self.url = self._get_ei_url()
-        logger.warning(f"[{self.__class__.__name__}] URL: {self.url}")
+        logger.info(f"[{self.__class__.__name__}] URL: {self.url}")
 
     def infer_from_file(self, image_path: str) -> dict | None:
         if not image_path or image_path == "":
