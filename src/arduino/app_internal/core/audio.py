@@ -149,7 +149,7 @@ class AudioDetector(EdgeImpulseRunnerFacade):
         logger.debug(f"Processing sensor data with {len(features)} features.")
         try:
             ret = self.infer_from_features(features.tolist())
-            spotted_keyword = AudioDetector.get_best_match(ret, self.confidence)
+            spotted_keyword = self.get_best_match(ret, self.confidence)
             if spotted_keyword:
                 keyword, confidence = spotted_keyword
                 keyword = keyword.lower()
