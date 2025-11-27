@@ -42,7 +42,11 @@ class EdgeImpulseRunnerFacade:
     """Facade for Edge Impulse Object Detection and Classification."""
 
     def __init__(self):
-        """Initialize the EdgeImpulseRunnerFacade with the API path."""
+        """Initialize the EdgeImpulseRunnerFacade with the API path.
+
+        Raises:
+            RuntimeError: If the Edge Impulse runner address cannot be resolved.
+        """
         self.url = self._get_ei_url()
         logger.info(f"[{self.__class__.__name__}] URL: {self.url}")
 
@@ -243,10 +247,15 @@ class EdgeImpulseRunnerFacade:
     @classmethod
     def _get_ei_url(cls):
         infra = load_brick_compose_file(cls)
+        if not infra or "services" not in infra:
+            raise RuntimeError("Cannot load Brick Compose file to resolve Edge Impulse runner address.")
+        host = None
         for k, v in infra["services"].items():
             host = k
             break
-        host = resolve_address(host)
-        port = 1337
-        url = f"http://{host}:{port}"
-        return url
+        if not host:
+            raise RuntimeError("Cannot resolve Edge Impulse runner address from Brick Compose file.")
+        addr = resolve_address(host)
+        if not addr:
+            raise RuntimeError("Host address resolution failed for Edge Impulse runner.")
+        return f"http://{addr}:1337"
