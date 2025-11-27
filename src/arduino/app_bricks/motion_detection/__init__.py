@@ -133,7 +133,7 @@ class MotionDetection(EdgeImpulseRunnerFacade):
             return
 
         try:
-            ret = self.infer_from_features(features.tolist())
+            ret = self.infer_from_features(features.flatten().tolist())
             spotted_movement = self._movement_spotted(ret)
             if spotted_movement is not None:
                 keyword, confidence, complete_detection = spotted_movement
