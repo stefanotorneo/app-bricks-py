@@ -129,7 +129,7 @@ class EdgeImpulseRunnerFacade:
         """
         try:
             url = cls._get_ei_url()
-            model_info = cls.get_model_info()
+            model_info = cls.get_model_info(url)
             features = features[: int(model_info.input_features_count)]
 
             response = requests.post(f"{url}/api/features", json={"features": features})
@@ -143,16 +143,18 @@ class EdgeImpulseRunnerFacade:
             return None
 
     @classmethod
-    def get_model_info(cls) -> EdgeImpulseModelInfo | None:
+    def get_model_info(cls, url: str = None) -> EdgeImpulseModelInfo | None:
         """Get model information from the Edge Impulse API.
 
         Args:
             cls: The class method caller.
+            url (str): The base URL of the Edge Impulse API. If None, it will be determined automatically.
 
         Returns:
             model_info (EdgeImpulseModelInfo | None): An instance of EdgeImpulseModelInfo containing model details, None if an error occurs.
         """
-        url = cls._get_ei_url()
+        if not url:
+            url = cls._get_ei_url()
 
         http_client = HttpClient(total_retries=6)  # Initialize the HTTP client with retry logic
         try:
