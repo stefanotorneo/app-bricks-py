@@ -39,7 +39,7 @@ class WaveGenerator:
         self,
         sample_rate: int = 16000,
         wave_type: WaveType = "sine",
-        block_duration: float = 0.03,
+        block_duration: float = 0.01,
         attack: float = 0.01,
         release: float = 0.03,
         glide: float = 0.02,
@@ -50,13 +50,29 @@ class WaveGenerator:
         Args:
             sample_rate (int): Audio sample rate in Hz (default: 16000).
             wave_type (WaveType): Initial waveform type (default: "sine").
-            block_duration (float): Duration of each audio block in seconds (default: 0.03).
+            block_duration (float): Duration of each audio block in seconds (default: 0.01).
             attack (float): Attack time for amplitude envelope in seconds (default: 0.01).
             release (float): Release time for amplitude envelope in seconds (default: 0.03).
             glide (float): Frequency glide time (portamento) in seconds (default: 0.02).
-            speaker (Speaker, optional): Pre-configured Speaker instance. If None, a new Speaker
-                will be created with default settings (auto-detect device, FLOAT_LE format).
-                WaveGenerator will manage the speaker's lifecycle (calling start/stop).
+            speaker (Speaker, optional): Pre-configured Speaker instance. If None, WaveGenerator
+                will create an internal Speaker optimized for real-time synthesis with:
+                - periodsize aligned to block_duration (eliminates buffer mismatch)
+                - queue_maxsize=8 (low latency: ~80ms max buffer)
+                - format=FLOAT_LE, channels=1
+
+                If providing an external Speaker, ensure:
+                - sample_rate matches WaveGenerator's sample_rate
+                - periodsize = int(sample_rate × block_duration) for optimal alignment
+                - Speaker is started/stopped manually (WaveGenerator won't manage its lifecycle)
+
+                Example external Speaker configuration:
+                    speaker = Speaker(
+                        device="plughw:CARD=UH34",
+                        sample_rate=16000,
+                        format="FLOAT_LE",
+                        periodsize=160,  # 16000 × 0.01 = 160 frames
+                        queue_maxsize=8
+                    )
 
         Raises:
             SpeakerException: If no USB speaker is found or device is busy.
@@ -90,18 +106,51 @@ class WaveGenerator:
         if speaker is not None:
             # Use externally provided Speaker instance
             self._speaker = speaker
-            logger.info("Using externally provided Speaker instance")
+            self._owns_speaker = False
+
+            # Validate external speaker configuration
+            if self._speaker.sample_rate != sample_rate:
+                logger.warning(
+                    f"External Speaker sample_rate ({self._speaker.sample_rate}Hz) differs from "
+                    f"WaveGenerator sample_rate ({sample_rate}Hz). This may cause issues."
+                )
+
+            # Check if periodsize is aligned with block_duration
+            expected_periodsize = int(sample_rate * block_duration)
+            if self._speaker._periodsize is not None and self._speaker._periodsize != expected_periodsize:
+                logger.warning(
+                    f"External Speaker periodsize ({self._speaker._periodsize} frames) does not match "
+                    f"WaveGenerator block size ({expected_periodsize} frames @ {sample_rate}Hz). "
+                    f"This may cause audio glitches. Consider using periodsize={expected_periodsize} "
+                    f"or omitting the speaker parameter to use auto-configured internal Speaker."
+                )
+            elif self._speaker._periodsize is None:
+                logger.warning(
+                    f"External Speaker has periodsize=None (hardware default). For optimal real-time "
+                    f"synthesis, consider setting periodsize={expected_periodsize} frames to match "
+                    f"WaveGenerator block size."
+                )
+
+            logger.info("Using externally provided Speaker instance (not managed by WaveGenerator)")
         else:
-            # Create internal Speaker instance with default settings
+            # Create internal Speaker instance optimized for real-time synthesis
+            # WaveGenerator requires low-latency configuration:
+            # - periodsize matches block_duration for aligned I/O
+            # - queue_maxsize reduced for responsive audio
+            block_size_frames = int(sample_rate * block_duration)
             self._speaker = Speaker(
-                device=None,  # Auto-detect first available USB speaker
+                device=Speaker.USB_SPEAKER_1,  # Auto-detect first available USB speaker
                 sample_rate=sample_rate,
                 channels=1,
                 format="FLOAT_LE",
+                periodsize=block_size_frames,  # Align with generation block
+                queue_maxsize=8,  # Extreme low latency: 8 blocks = 80ms @ 10ms/block
             )
+            self._owns_speaker = True
             logger.info(
-                "Created internal Speaker: device=auto-detect, sample_rate=%d, format=FLOAT_LE",
+                "Created internal Speaker: device=auto-detect, sample_rate=%d, format=FLOAT_LE, periodsize=%d frames",
                 sample_rate,
+                block_size_frames,
             )
 
         # Producer thread control
@@ -119,22 +168,29 @@ class WaveGenerator:
     def start(self):
         """Start the wave generator and audio output.
 
-        This starts the speaker device and launches the producer thread that
-        continuously generates and streams audio blocks.
+        This starts the speaker device (if internally owned) and launches the producer thread
+        that continuously generates and streams audio blocks.
         """
         if self._running.is_set():
             logger.warning("WaveGenerator is already running")
             return
 
         logger.info("Starting WaveGenerator...")
-        self._speaker.start()
 
-        # Set hardware speaker volume to maximum (100%)
-        try:
-            self._speaker.set_volume(100)
-            logger.info("Speaker hardware volume set to 100%")
-        except Exception as e:
-            logger.warning(f"Could not set speaker volume: {e}")
+        if self._owns_speaker:
+            self._speaker.start()
+
+            # Set hardware speaker volume to maximum (100%)
+            try:
+                self._speaker.set_volume(100)
+                logger.info("Speaker hardware volume set to 100%")
+            except Exception as e:
+                logger.warning(f"Could not set speaker volume: {e}")
+        else:
+            logger.info("Using external Speaker (lifecycle not managed by WaveGenerator)")
+            # Verify external speaker is started
+            if not self._speaker._is_reproducing.is_set():
+                logger.warning("External Speaker is not started! Call speaker.start() before starting WaveGenerator, or audio playback will fail.")
 
         self._running.set()
 
@@ -146,7 +202,7 @@ class WaveGenerator:
     def stop(self):
         """Stop the wave generator and audio output.
 
-        This stops the producer thread and closes the speaker device.
+        This stops the producer thread and closes the speaker device (if internally owned).
         """
         if not self._running.is_set():
             logger.warning("WaveGenerator is not running")
@@ -161,8 +217,12 @@ class WaveGenerator:
                 logger.warning("Producer thread did not terminate in time")
             self._producer_thread = None
 
-        self._speaker.stop()
-        logger.info("WaveGenerator stopped")
+        # Only stop speaker if we own it (internal instance)
+        if self._owns_speaker:
+            self._speaker.stop()
+            logger.info("WaveGenerator stopped (internal Speaker closed)")
+        else:
+            logger.info("WaveGenerator stopped (external Speaker not closed)")
 
     def set_frequency(self, frequency: float):
         """Set the target output frequency.
@@ -265,11 +325,13 @@ class WaveGenerator:
         """Main producer loop running in background thread.
 
         Continuously generates audio blocks at a steady cadence and streams
-        them to the speaker device.
+        them to the speaker device. Uses adaptive generation: when queue is low,
+        generates extra blocks to prevent underruns and glitches.
         """
         logger.debug("Producer loop started")
         next_time = time.perf_counter()
         block_count = 0
+        emergency_refill_threshold = 2  # Generate extra blocks if queue below this (~20ms @ 10ms/block)
 
         while self._running.is_set():
             next_time += self.block_duration
@@ -285,10 +347,20 @@ class WaveGenerator:
             if block_count % 100 == 0 or (block_count < 5):
                 logger.debug(f"Producer: block={block_count}, freq={target_freq:.1f}Hz, amp={target_amp:.3f}")
 
-            # Generate audio block
+            # Check queue depth and generate extra blocks if needed
+            queue_depth = self._speaker._playing_queue.qsize()
+            blocks_to_generate = 1
+            if queue_depth < emergency_refill_threshold:
+                # Emergency: generate 2-3 blocks at once to quickly refill
+                blocks_to_generate = min(3, emergency_refill_threshold - queue_depth)
+                if blocks_to_generate > 1:
+                    logger.debug(f"Emergency refill: queue={queue_depth}, generating {blocks_to_generate} blocks")
+
+            # Generate audio block(s)
             try:
-                audio_block = self._generate_block(target_freq, target_amp, wave_type)
-                self._speaker.play(audio_block, block_on_queue=False)
+                for _ in range(blocks_to_generate):
+                    audio_block = self._generate_block(target_freq, target_amp, wave_type)
+                    self._speaker.play(audio_block, block_on_queue=False)
             except Exception as e:
                 logger.error(f"Error generating audio block: {e}")
 
