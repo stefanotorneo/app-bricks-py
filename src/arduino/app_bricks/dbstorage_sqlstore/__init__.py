@@ -215,12 +215,12 @@ class SQLStore:
             raise DBStorageSQLStoreError(f"Error inserting data into {table}: {e}")
 
     def read(
-            self,
-            table: str,
-            columns: Optional[list] = None,
-            condition: Optional[str] = None,
-            order_by: Optional[str] = None,
-            limit: Optional[int] = -1,
+        self,
+        table: str,
+        columns: Optional[list] = None,
+        condition: Optional[str] = None,
+        order_by: Optional[str] = None,
+        limit: Optional[int] = -1,
     ) -> list[dict[str, Any]]:
         """Get data from the specified table with flexible filtering options. If the table does not exist, it returns an empty list.
 

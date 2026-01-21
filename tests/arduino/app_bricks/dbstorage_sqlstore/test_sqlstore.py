@@ -13,6 +13,7 @@ from arduino.app_utils import Logger
 
 logger = Logger("SQLStore.tests")
 
+
 @pytest.fixture
 def open_sqlstore_database():
     """Fixture to provide an open SQLStore database for testing."""
@@ -523,7 +524,7 @@ def test_create_or_replace_table_remove_indexed_column_force_drop(open_sqlstore_
 
 
 def test_create_or_replace_table_remove_column_with_check_constraint(
-        open_sqlstore_database: SQLStore,
+    open_sqlstore_database: SQLStore,
 ):
     """Test removing a column with a CHECK constraint (non-simple).
 
@@ -563,7 +564,7 @@ def test_create_or_replace_table_remove_column_with_check_constraint_force_drop(
 
 
 def test_create_or_replace_table_remove_generated_column(
-        open_sqlstore_database: SQLStore,
+    open_sqlstore_database: SQLStore,
 ):
     """Test removing a generated column (non-simple) with create_or_replace_table and force_drop_table=False.
 
@@ -723,7 +724,7 @@ def test_create_or_replace_table_transaction_rollback_on_indexed_column(open_sql
 
 
 def test_create_or_replace_table_transaction_rollback_on_foreign_key_column(
-        open_sqlstore_database: SQLStore,
+    open_sqlstore_database: SQLStore,
 ):
     """Test rollback on foreign key column removal error.
 
